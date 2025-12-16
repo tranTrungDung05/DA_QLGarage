@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application/screens/services/service_list_screen.dart';
 import 'package:flutter_application/screens/staff/staff_list_screen.dart';
+import 'package:flutter_application/screens/revenue/revenue_screen.dart';
 import 'package:go_router/go_router.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -17,7 +18,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Center(child: Text('Trang tổng quan')),
     ServiceListScreen(),
     StaffListScreen(),
-    Center(child: Text('Doanh thu')),
+    RevenueScreen(),
   ];
 
   @override
@@ -48,6 +49,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               onTap: () {
                 Navigator.of(context).pop();
                 context.push('/vehicles');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.receipt),
+              title: const Text('Phiếu tiếp nhận'),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.push('/receptions');
               },
             ),
           ],

@@ -4,8 +4,10 @@ import 'package:flutter_application/models/staff.dart';
 import 'package:flutter_application/services/staff_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+// Màn hình để thêm hoặc sửa thông tin nhân viên
 class StaffFormScreen extends StatefulWidget {
-  final Staff? staff;
+  final Staff?
+  staff; // Nếu có staff thì là chế độ sửa, nếu null thì là thêm mới
 
   const StaffFormScreen({super.key, this.staff});
 
@@ -14,78 +16,114 @@ class StaffFormScreen extends StatefulWidget {
 }
 
 class _StaffFormScreenState extends State<StaffFormScreen> {
-  final _nameCtrl = TextEditingController();
-  final _positionCtrl = TextEditingController();
-  final _salaryCtrl = TextEditingController();
+  // Các controller để quản lý text trong form
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _positionController = TextEditingController();
+  final TextEditingController _salaryController = TextEditingController();
 
-  final firestore = StaffFirestore();
-  final uuid = const Uuid();
+  // Dịch vụ để lưu dữ liệu lên Firestore
+  final StaffFirestore _firestoreService = StaffFirestore();
+  // Để tạo ID duy nhất cho nhân viên mới
+  final Uuid _uuid = const Uuid();
 
   @override
   void initState() {
     super.initState();
-
-    final s = widget.staff;
-    if (s != null) {
-      _nameCtrl.text = s.name;
-      _positionCtrl.text = s.position;
-      _salaryCtrl.text = s.salary.toString();
+    // Nếu đang sửa, điền sẵn thông tin cũ vào form
+    if (widget.staff != null) {
+      _nameController.text = widget.staff!.name;
+      _positionController.text = widget.staff!.position;
+      _salaryController.text = widget.staff!.salary.toString();
     }
   }
 
+  // Hàm tạo đối tượng Staff từ dữ liệu form
+  Staff _createStaffFromForm(String id) {
+    double salary = double.tryParse(_salaryController.text) ?? 0.0;
+    return Staff(
+      salary,
+      id: id,
+      name: _nameController.text,
+      position: _positionController.text,
+    );
+  }
+
+  // Hàm lưu và quay lại
   Future<void> _save() async {
-    final salary = double.tryParse(_salaryCtrl.text) ?? 0;
+    String id =
+        widget.staff?.id ??
+        _uuid.v4(); // Nếu sửa thì dùng ID cũ, nếu thêm thì tạo mới
+    Staff staff = _createStaffFromForm(id);
 
     if (widget.staff == null) {
-      final emp = Staff(
-        salary,
-        id: uuid.v4(),
-        name: _nameCtrl.text,
-        position: _positionCtrl.text,
-      );
-
-      await firestore.addEmployee(emp);
+      // Thêm nhân viên mới
+      await _firestoreService.addEmployee(staff);
     } else {
-      final updated = Staff(
-        salary,
-        id: widget.staff!.id,
-        name: _nameCtrl.text,
-        position: _positionCtrl.text,
-      );
-
-      await firestore.updateEmployee(updated);
+      // Cập nhật nhân viên cũ
+      await _firestoreService.updateEmployee(staff);
     }
 
     if (!mounted) return;
-    context.pop();
+    context.pop(); // Quay lại màn hình trước
+  }
+
+  // Hàm lưu và tiếp tục thêm
+  Future<void> _saveAndContinue() async {
+    if (widget.staff != null) {
+      // Nếu đang sửa, không có chức năng "lưu và tiếp tục"
+      await _save();
+      return;
+    }
+
+    // Tạo nhân viên mới
+    String id = _uuid.v4();
+    Staff staff = _createStaffFromForm(id);
+    await _firestoreService.addEmployee(staff);
+
+    if (!mounted) return;
+    // Hiển thị thông báo
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Đã lưu nhân viên')));
+
+    // Xóa sạch form để thêm tiếp
+    _nameController.clear();
+    _positionController.clear();
+    _salaryController.clear();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isEdit = widget.staff != null;
+    bool isEditing = widget.staff != null;
 
     return Scaffold(
-      appBar: AppBar(title: Text(isEdit ? 'Sửa nhân viên' : 'Thêm nhân viên')),
+      appBar: AppBar(
+        title: Text(isEditing ? 'Sửa nhân viên' : 'Thêm nhân viên'),
+      ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            // Trường nhập tên
             TextField(
-              controller: _nameCtrl,
+              controller: _nameController,
               decoration: const InputDecoration(labelText: 'Tên nhân viên'),
             ),
+            // Trường nhập chức vụ
             TextField(
-              controller: _positionCtrl,
+              controller: _positionController,
               decoration: const InputDecoration(labelText: 'Chức vụ'),
             ),
+            // Trường nhập lương
             TextField(
-              controller: _salaryCtrl,
+              controller: _salaryController,
               decoration: const InputDecoration(labelText: 'Lương'),
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 24),
             Row(
               children: [
+                // Nút lưu
                 Expanded(
                   child: ElevatedButton(
                     onPressed: _save,
@@ -93,55 +131,19 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _saveAndContinue,
-                    child: const Text('Lưu & Thêm tiếp'),
+                // Nút lưu và thêm tiếp (chỉ hiện khi thêm mới)
+                if (!isEditing)
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _saveAndContinue,
+                      child: const Text('Lưu & Thêm tiếp'),
+                    ),
                   ),
-                ),
               ],
             ),
           ],
         ),
       ),
     );
-  }
-
-  Future<void> _saveAndContinue() async {
-    final salary = double.tryParse(_salaryCtrl.text) ?? 0;
-
-    if (widget.staff == null) {
-      final emp = Staff(
-        salary,
-        id: uuid.v4(),
-        name: _nameCtrl.text,
-        position: _positionCtrl.text,
-      );
-
-      await firestore.addEmployee(emp);
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Đã lưu')));
-
-      _nameCtrl.clear();
-      _positionCtrl.clear();
-      _salaryCtrl.clear();
-    } else {
-      final updated = Staff(
-        salary,
-        id: widget.staff!.id,
-        name: _nameCtrl.text,
-        position: _positionCtrl.text,
-      );
-
-      await firestore.updateEmployee(updated);
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Đã cập nhật')));
-    }
   }
 }
