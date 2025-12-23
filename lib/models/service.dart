@@ -1,57 +1,42 @@
-// This file defines the Service model.
-// A model represents the data structure for a service in the app.
+// File: lib/models/service.dart
+// Model Service CÓ positionId và positionName
 
-// The Service class holds information about a service offered.
 class Service {
-  // Unique identifier for the service.
   final String id;
-  // Name of the service.
   final String name;
-  // Description of what the service includes.
-  final String description;
-  // Price of the service in some currency.
+  final String? description;
   final double price;
-  // How long the service takes in minutes (optional).
-  final int? durationInMinutes;
+  final String positionId;
+  final String positionName;
 
-  // Constructor to create a new Service object.
   Service({
     required this.id,
     required this.name,
-    required this.description,
+    this.description,
     required this.price,
-    this.durationInMinutes,
+    required this.positionId,
+    required this.positionName,
   });
 
-  // Convert the Service object to a map for saving to Firestore database.
-  Map<String, dynamic> toJson() => {
-    'name': name,
-    'description': description,
-    'price': price,
-    'durationInMinutes': durationInMinutes,
-  };
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+      'price': price,
+      'positionId': positionId,
+      'positionName': positionName,
+    };
+  }
 
-  // Create a Service object from data loaded from Firestore.
-  factory Service.fromJson(Map<String, dynamic> json, {required String id}) {
-    // Get the price value from the JSON data.
-    final priceValue = json['price'];
-
-    // Convert the price to a double, handling cases where it might be an int or already a double.
-    double convertedPrice;
-    if (priceValue is int) {
-      convertedPrice = priceValue.toDouble();
-    } else if (priceValue is double) {
-      convertedPrice = priceValue;
-    } else {
-      convertedPrice = 0.0; // Default if not a number
-    }
-
+  factory Service.fromJson(Map<String, dynamic> json, {String? id}) {
     return Service(
-      id: id,
+      id: id ?? json['id'] ?? '',
       name: json['name'] ?? '',
-      description: json['description'] ?? '',
-      price: convertedPrice,
-      durationInMinutes: json['durationInMinutes'] as int?,
+      description: json['description'],
+      price: json['price'] != null ? (json['price'] as num).toDouble() : 0.0,
+      positionId: json['positionId'] ?? '',
+      positionName: json['positionName'] ?? '',
     );
   }
 }

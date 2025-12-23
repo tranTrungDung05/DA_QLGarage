@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_application/models/staff.dart';
+import '../models/staff.dart';
 
 // This file contains the service for managing staff data in Firestore.
 
@@ -37,5 +37,14 @@ class StaffFirestore {
   // Delete a staff member from the database by their ID.
   Future<void> deleteEmployee(String id) {
     return _db.collection(_collection).doc(id).delete();
+  }
+
+  // Get all staff as a Future (one-time fetch)
+  Future<List<Staff>> getAllStaff() async {
+    final snapshot = await _db.collection(_collection).orderBy('name').get();
+
+    return snapshot.docs.map((doc) {
+      return Staff.fromJson(doc.data(), id: doc.id);
+    }).toList();
   }
 }

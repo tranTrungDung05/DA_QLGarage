@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application/firebase_options.dart';
 import 'package:flutter_application/router.dart';
+import 'services/position_firestore.dart';
 
 // This is the entry point of the Flutter application.
 // The main function is where the app starts running.
@@ -12,8 +13,20 @@ void main() async {
 
   // Initialize Firebase with the options for the current platform (Android, iOS, etc.).
   // Firebase is a backend service that helps with things like authentication and databases.
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    final positionFirestore = PositionFirestore();
+    final positions = await positionFirestore.getAllPositions();
+    if (positions.isEmpty) {
+      await positionFirestore.seedDefaultPositions();
+    }
+  } catch (e) {
+    // Firebase not configured for this platform (e.g., Windows)
+    // Continue without Firebase for development
+    // print('Firebase not available: $e'); // Commented out for production
+  }
   // Run the app by creating an instance of MyApp.
   runApp(const MyApp());
 }

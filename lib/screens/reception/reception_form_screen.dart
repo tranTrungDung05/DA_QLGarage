@@ -1,3 +1,6 @@
+// File: lib/screens/reception/reception_form_screen.dart
+// Dropdown nhân viên CHỈ HIỂN THỊ những người phù hợp với dịch vụ
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_application/models/reception.dart';
@@ -12,9 +15,8 @@ import 'package:flutter_application/services/staff_firestore.dart';
 import 'package:flutter_application/services/service_firestore.dart';
 import 'package:uuid/uuid.dart';
 
-// Màn hình form để thêm hoặc sửa phiếu tiếp nhận
 class ReceptionFormScreen extends StatefulWidget {
-  final Reception? reception; // Nếu có thì là chế độ sửa
+  final Reception? reception;
 
   const ReceptionFormScreen({super.key, this.reception});
 
@@ -23,26 +25,33 @@ class ReceptionFormScreen extends StatefulWidget {
 }
 
 class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
-  // Controllers cho form
+  // Controllers
   final TextEditingController _totalPriceController = TextEditingController();
+
   String? _selectedCustomerId;
   String? _selectedVehicleId;
   String? _selectedStaffId;
   List<String> _selectedServiceIds = [];
   String _selectedStatus = 'pending';
 
+  // Filtered staff (chỉ nhân viên phù hợp)
+  List<Staff> _filteredStaff = [];
+  List<Staff> _allStaff = [];
+  List<Service> _allServices = [];
+
   // Services
-  final ReceptionFirestore _receptionService = ReceptionFirestore();
-  final CustomerFirestore _customerService = CustomerFirestore();
-  final VehicleFirestore _vehicleService = VehicleFirestore();
-  final StaffFirestore _staffService = StaffFirestore();
-  final ServiceFirestore _serviceService = ServiceFirestore();
-  final Uuid _uuid = const Uuid();
+  final _receptionService = ReceptionFirestore();
+  final _customerService = CustomerFirestore();
+  final _vehicleService = VehicleFirestore();
+  final _staffService = StaffFirestore();
+  final _serviceService = ServiceFirestore();
+  final _uuid = const Uuid();
 
   @override
   void initState() {
     super.initState();
-    // Nếu đang sửa, điền sẵn dữ liệu
+    _loadData();
+
     if (widget.reception != null) {
       _selectedCustomerId = widget.reception!.customerId;
       _selectedVehicleId = widget.reception!.vehicleId;
@@ -50,7 +59,22 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
       _selectedServiceIds = List.from(widget.reception!.serviceIds);
       _totalPriceController.text = widget.reception!.totalPrice.toString();
       _selectedStatus = widget.reception!.status;
-      // Tính tổng nếu cần, nhưng vì đã có totalPrice, có lẽ không cần
+    }
+  }
+
+  Future<void> _loadData() async {
+    final staff = await _staffService.getAllStaff();
+    final services = await _serviceService.getAllServices();
+
+    setState(() {
+      _allStaff = staff;
+      _allServices = services;
+    });
+
+    // ===== THÊM DÒNG NÀY =====
+    // Nếu đang edit và đã có service IDs → Update filtered staff
+    if (widget.reception != null && _selectedServiceIds.isNotEmpty) {
+      _updateFilteredStaff();
     }
   }
 
@@ -59,17 +83,77 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
     for (var id in _selectedServiceIds) {
       final service = services.firstWhere(
         (s) => s.id == id,
-        orElse: () => Service(id: '', name: '', description: '', price: 0.0),
+        orElse: () => Service(
+          id: '',
+          name: '',
+          description: '',
+          price: 0.0,
+          positionId: '',
+          positionName: '',
+        ),
       );
       total += service.price;
     }
     _totalPriceController.text = total.toString();
   }
 
-  // Hàm lưu
-  Future<void> _save() async {
-    double totalPrice = double.tryParse(_totalPriceController.text) ?? 0.0;
+  // ============================================
+  // LỌC STAFF - CHỈ HIỂN THỊ NGƯỜI PHÙ HỢP
+  // ============================================
+  void _updateFilteredStaff() {
+    // Nếu chưa chọn dịch vụ nào → Không hiển thị staff nào
+    if (_selectedServiceIds.isEmpty) {
+      setState(() {
+        _filteredStaff = [];
+        _selectedStaffId = null; // Reset staff đã chọn
+      });
+      return;
+    }
 
+    // Lấy tất cả positionIds từ các services đã chọn
+    final requiredPositionIds = <String>{};
+
+    for (final serviceId in _selectedServiceIds) {
+      final service = _allServices.firstWhere(
+        (s) => s.id == serviceId,
+        orElse: () => Service(
+          id: '',
+          name: '',
+          price: 0.0,
+          positionId: '',
+          positionName: '',
+        ),
+      );
+
+      if (service.positionId.isNotEmpty) {
+        requiredPositionIds.add(service.positionId);
+      }
+    }
+
+    // LỌC: CHỈ LẤY staff có position phù hợp
+    final filtered = _allStaff.where((staff) {
+      return requiredPositionIds.contains(staff.positionId);
+    }).toList();
+
+    setState(() {
+      _filteredStaff = filtered;
+
+      // Reset staff đã chọn nếu không còn trong danh sách filtered
+      if (_selectedStaffId != null) {
+        final isStillValid = filtered.any((s) => s.id == _selectedStaffId);
+        if (!isStillValid) {
+          _selectedStaffId = null;
+        }
+      }
+
+      // Auto-select nếu chỉ có 1 staff
+      if (filtered.length == 1) {
+        _selectedStaffId = filtered.first.id;
+      }
+    });
+  }
+
+  Future<void> _save() async {
     if (_selectedCustomerId == null ||
         _selectedVehicleId == null ||
         _selectedStaffId == null) {
@@ -78,6 +162,15 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
       );
       return;
     }
+
+    if (_selectedServiceIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng chọn ít nhất 1 dịch vụ')),
+      );
+      return;
+    }
+
+    double totalPrice = double.tryParse(_totalPriceController.text) ?? 0.0;
 
     String id = widget.reception?.id ?? _uuid.v4();
     Reception reception = Reception(
@@ -91,15 +184,32 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
       createdAt: widget.reception?.createdAt ?? DateTime.now(),
     );
 
-    if (widget.reception == null) {
-      await _receptionService.addReception(reception);
-    } else {
-      // Cập nhật toàn bộ
-      await _receptionService.updateReception(reception);
-    }
+    try {
+      if (widget.reception == null) {
+        await _receptionService.addReception(reception);
+      } else {
+        await _receptionService.updateReception(reception);
+      }
 
-    if (!mounted) return;
-    context.pop();
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.reception == null
+                ? 'Đã tạo phiếu tiếp nhận'
+                : 'Đã cập nhật phiếu',
+          ),
+        ),
+      );
+
+      context.pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Lỗi: ${e.toString()}')));
+    }
   }
 
   @override
@@ -114,8 +224,14 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Dropdown chọn khách hàng
+              // KHÁCH HÀNG
+              const Text(
+                '👤 Khách hàng',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
               StreamBuilder<List<Customer>>(
                 stream: _customerService.streamCustomers(),
                 builder: (context, snapshot) {
@@ -124,103 +240,99 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
                   }
                   return DropdownButtonFormField<String>(
                     initialValue: _selectedCustomerId,
-                    items: snapshot.data!
-                        .map(
-                          (c) => DropdownMenuItem(
-                            value: c.id,
-                            child: Text(c.name),
-                          ),
-                        )
-                        .toList(),
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: 'Chọn khách hàng',
+                    ),
+                    items: snapshot.data!.map((c) {
+                      return DropdownMenuItem(value: c.id, child: Text(c.name));
+                    }).toList(),
                     onChanged: (value) {
                       setState(() {
                         _selectedCustomerId = value;
-                        _selectedVehicleId =
-                            null; // Reset vehicle khi đổi customer
+                        _selectedVehicleId = null;
                       });
                     },
-                    decoration: const InputDecoration(
-                      labelText: 'Chọn khách hàng',
-                    ),
                   );
                 },
               ),
-              // Dropdown chọn phương tiện
+              const SizedBox(height: 16),
+
+              // PHƯƠNG TIỆN
+              const Text(
+                '🚗 Phương tiện',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
               StreamBuilder<List<Vehicle>>(
                 stream: _vehicleService.getVehicles(),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
                     return const CircularProgressIndicator();
                   }
+
                   final filteredVehicles = _selectedCustomerId == null
                       ? <Vehicle>[]
                       : snapshot.data!
                             .where((v) => v.customerId == _selectedCustomerId)
                             .toList();
+
                   return DropdownButtonFormField<String>(
                     initialValue: _selectedVehicleId,
-                    items: filteredVehicles
-                        .map(
-                          (v) => DropdownMenuItem(
-                            value: v.id,
-                            child: Text(
-                              '${v.brand} ${v.model} (${v.plateNumber})',
-                            ),
-                          ),
-                        )
-                        .toList(),
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(),
+                      hintText: _selectedCustomerId == null
+                          ? 'Vui lòng chọn khách hàng trước'
+                          : 'Chọn phương tiện',
+                    ),
+                    items: filteredVehicles.map((v) {
+                      return DropdownMenuItem(
+                        value: v.id,
+                        child: Text('${v.brand} ${v.model} (${v.plateNumber})'),
+                      );
+                    }).toList(),
                     onChanged: _selectedCustomerId == null
                         ? null
                         : (value) => setState(() => _selectedVehicleId = value),
-                    decoration: InputDecoration(
-                      labelText: 'Chọn phương tiện',
-                      hintText: _selectedCustomerId == null
-                          ? 'Vui lòng chọn khách hàng trước'
-                          : null,
-                    ),
                   );
                 },
               ),
-              // Dropdown chọn nhân viên
-              StreamBuilder<List<Staff>>(
-                stream: _staffService.getEmployees(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const CircularProgressIndicator();
-                  }
-                  return DropdownButtonFormField<String>(
-                    initialValue: _selectedStaffId,
-                    items: snapshot.data!
-                        .map(
-                          (s) => DropdownMenuItem(
-                            value: s.id,
-                            child: Text(s.name),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) =>
-                        setState(() => _selectedStaffId = value),
-                    decoration: const InputDecoration(
-                      labelText: 'Chọn nhân viên',
-                    ),
-                  );
-                },
+              const SizedBox(height: 16),
+
+              // DỊCH VỤ
+              const Text(
+                '🔧 Dịch vụ',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
-              // Multi-select cho dịch vụ (đơn giản hóa bằng checkbox list)
-              const Text('Chọn dịch vụ:'),
+              const SizedBox(height: 8),
               StreamBuilder<List<Service>>(
                 stream: _serviceService.getServices(),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
                     return const CircularProgressIndicator();
                   }
+
                   final services = snapshot.data!;
-                  return Column(
-                    children: [
-                      // ignore: unnecessary_to_list_in_spreads
-                      ...services.map((service) {
+
+                  return Card(
+                    child: Column(
+                      children: services.map((service) {
                         return CheckboxListTile(
-                          title: Text('${service.name} - ${service.price} VND'),
+                          title: Text(service.name),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('💰 ${_formatMoney(service.price)}'),
+                              Text(
+                                '👨‍🔧 Cần: ${service.positionName}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.blue,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
                           value: _selectedServiceIds.contains(service.id),
                           onChanged: (bool? selected) {
                             setState(() {
@@ -230,42 +342,209 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
                                 _selectedServiceIds.remove(service.id);
                               }
                               _calculateTotalPrice(services);
+                              _updateFilteredStaff(); // ← Cập nhật list staff
                             });
                           },
                         );
-                      }),
-                    ],
+                      }).toList(),
+                    ),
                   );
                 },
               ),
-              // TextField cho tổng tiền (tự động tính)
+              const SizedBox(height: 16),
+
+              // NHÂN VIÊN PHỤ TRÁCH
+              const Text(
+                '👨‍🔧 Nhân viên phụ trách',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+
+              // ===== CHỈ HIỂN THỊ FILTERED STAFF =====
+              if (_selectedServiceIds.isEmpty)
+                // Chưa chọn dịch vụ
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.grey),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Vui lòng chọn dịch vụ trước để xem danh sách nhân viên phù hợp',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else if (_filteredStaff.isEmpty)
+                // Không có staff phù hợp
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning, color: Colors.orange.shade700),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          '⚠️ Không có nhân viên phù hợp với dịch vụ đã chọn',
+                          style: TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                // Có staff phù hợp → Hiển thị dropdown
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Info box
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.green.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.check_circle,
+                            color: Colors.green.shade700,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Có ${_filteredStaff.length} nhân viên phù hợp',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.green.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Dropdown CHỈ hiển thị filtered staff
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedStaffId,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        hintText: 'Chọn nhân viên',
+                        prefixIcon: Icon(Icons.person),
+                      ),
+                      items: _filteredStaff.map((staff) {
+                        return DropdownMenuItem(
+                          value: staff.id,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                staff.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                '${staff.positionName} • ${_formatMoney(staff.salary)}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) =>
+                          setState(() => _selectedStaffId = value),
+                    ),
+                  ],
+                ),
+
+              const SizedBox(height: 16),
+
+              // TỔNG TIỀN
+              const Text(
+                '💰 Tổng tiền',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
               TextField(
                 controller: _totalPriceController,
                 decoration: const InputDecoration(
-                  labelText: 'Tổng tiền (tự động)',
+                  border: OutlineInputBorder(),
+                  suffixText: 'VNĐ',
                 ),
                 keyboardType: TextInputType.number,
                 readOnly: true,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
               ),
-              // Dropdown cho trạng thái
+              const SizedBox(height: 16),
+
+              // TRẠNG THÁI
+              const Text(
+                '📊 Trạng thái',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 initialValue: _selectedStatus,
-                items: ['pending', 'in_progress', 'done', 'canceled']
-                    .map(
-                      (status) =>
-                          DropdownMenuItem(value: status, child: Text(status)),
-                    )
-                    .toList(),
+                decoration: const InputDecoration(border: OutlineInputBorder()),
+                items: const [
+                  DropdownMenuItem(value: 'pending', child: Text('⏳ Đang chờ')),
+                  DropdownMenuItem(
+                    value: 'in_progress',
+                    child: Text('🔧 Đang sửa'),
+                  ),
+                  DropdownMenuItem(value: 'done', child: Text('✅ Hoàn thành')),
+                  DropdownMenuItem(value: 'canceled', child: Text('❌ Đã hủy')),
+                ],
                 onChanged: (value) => setState(() => _selectedStatus = value!),
-                decoration: const InputDecoration(labelText: 'Trạng thái'),
               ),
               const SizedBox(height: 24),
-              // Nút lưu
-              ElevatedButton(onPressed: _save, child: const Text('Lưu')),
+
+              // NÚT LƯU
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _save,
+                  icon: const Icon(Icons.save),
+                  label: const Text('Lưu phiếu'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  String _formatMoney(double amount) {
+    return '${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (match) => '${match[1]},')} VNĐ';
   }
 }

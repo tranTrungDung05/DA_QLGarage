@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application/models/position.dart';
 import 'package:flutter_application/screens/auth/login_screen.dart';
 import 'package:flutter_application/screens/auth/register_screen.dart';
 import 'package:flutter_application/screens/dashboard_screens/dashboard_screen.dart';
 import 'package:flutter_application/screens/services/service_form_screen.dart';
 import 'package:flutter_application/screens/staff/staff_form_screen.dart';
 import 'package:flutter_application/screens/customer/customer_form_screen.dart';
+import 'package:flutter_application/screens/staff_positions/position_form_screen.dart';
+import 'screens/staff_positions/position_list_screen.dart';
 import 'package:flutter_application/screens/vehicle/vehicle_form_screen.dart';
 import 'package:flutter_application/screens/customer/customer_list_screen.dart';
 import 'package:flutter_application/screens/vehicle/vehicle_list_screen.dart';
@@ -106,6 +109,17 @@ GoRouter createRouter() {
         path: '/reception_form',
         builder: (context, state) =>
             ReceptionFormScreen(reception: state.extra as Reception?),
+      ),
+      GoRoute(
+        path: '/positions',
+        builder: (context, state) => const PositionListScreen(),
+      ),
+      GoRoute(
+        path: '/position_form',
+        builder: (context, state) {
+          final position = state.extra as Position?;
+          return PositionFormScreen(position: position);
+        },
       ),
     ],
   );

@@ -1,13 +1,16 @@
+// File: lib/screens/staff/staff_form_screen.dart
+// Màn hình thêm/sửa nhân viên (đơn giản)
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_application/models/staff.dart';
-import 'package:flutter_application/services/staff_firestore.dart';
+import '../../models/staff.dart';
+import '../../models/position.dart';
+import '../../services/staff_firestore.dart';
+import '../../services/position_firestore.dart';
 import 'package:uuid/uuid.dart';
 
-// Màn hình để thêm hoặc sửa thông tin nhân viên
 class StaffFormScreen extends StatefulWidget {
-  final Staff?
-  staff; // Nếu có staff thì là chế độ sửa, nếu null thì là thêm mới
+  final Staff? staff;
 
   const StaffFormScreen({super.key, this.staff});
 
@@ -16,134 +19,285 @@ class StaffFormScreen extends StatefulWidget {
 }
 
 class _StaffFormScreenState extends State<StaffFormScreen> {
-  // Các controller để quản lý text trong form
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _positionController = TextEditingController();
-  final TextEditingController _salaryController = TextEditingController();
+  // Controllers
+  final _nameController = TextEditingController();
+  final _salaryController = TextEditingController();
 
-  // Dịch vụ để lưu dữ liệu lên Firestore
-  final StaffFirestore _firestoreService = StaffFirestore();
-  // Để tạo ID duy nhất cho nhân viên mới
-  final Uuid _uuid = const Uuid();
+  // Services
+  final _staffFirestore = StaffFirestore();
+  final _positionFirestore = PositionFirestore();
+  final _uuid = const Uuid();
+
+  // State
+  Position? _selectedPosition;
+  List<Position> _positions = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    // Nếu đang sửa, điền sẵn thông tin cũ vào form
+    _loadPositions();
+
+    // Nếu đang sửa → Điền dữ liệu cũ
     if (widget.staff != null) {
       _nameController.text = widget.staff!.name;
-      _positionController.text = widget.staff!.position;
       _salaryController.text = widget.staff!.salary.toString();
     }
   }
 
-  // Hàm tạo đối tượng Staff từ dữ liệu form
-  Staff _createStaffFromForm(String id) {
-    double salary = double.tryParse(_salaryController.text) ?? 0.0;
-    return Staff(
-      salary,
-      id: id,
-      name: _nameController.text,
-      position: _positionController.text,
-    );
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _salaryController.dispose();
+    super.dispose();
   }
 
-  // Hàm lưu và quay lại
-  Future<void> _save() async {
-    String id =
-        widget.staff?.id ??
-        _uuid.v4(); // Nếu sửa thì dùng ID cũ, nếu thêm thì tạo mới
-    Staff staff = _createStaffFromForm(id);
+  // Load danh sách positions
+  Future<void> _loadPositions() async {
+    try {
+      final positions = await _positionFirestore.getAllPositions();
+      setState(() {
+        _positions = positions;
+        _isLoading = false;
 
-    if (widget.staff == null) {
-      // Thêm nhân viên mới
-      await _firestoreService.addEmployee(staff);
-    } else {
-      // Cập nhật nhân viên cũ
-      await _firestoreService.updateEmployee(staff);
+        // Nếu đang sửa → Tìm position hiện tại
+        if (widget.staff != null) {
+          _selectedPosition = positions.firstWhere(
+            (p) => p.id == widget.staff!.positionId,
+            orElse: () => positions.first,
+          );
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Lỗi load positions: $e')));
+      }
+    }
+  }
+
+  // Lưu staff
+  Future<void> _save() async {
+    // Validate
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng nhập tên nhân viên')),
+      );
+      return;
     }
 
-    if (!mounted) return;
-    context.pop(); // Quay lại màn hình trước
+    if (_selectedPosition == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Vui lòng chọn vị trí')));
+      return;
+    }
+
+    final salary = double.tryParse(_salaryController.text);
+    if (salary == null || salary <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng nhập lương hợp lệ')),
+      );
+      return;
+    }
+
+    // Tạo Staff object
+    final id = widget.staff?.id ?? _uuid.v4();
+    final staff = Staff(
+      id: id,
+      name: _nameController.text.trim(),
+      positionId: _selectedPosition!.id,
+      positionName: _selectedPosition!.name,
+      salary: salary,
+    );
+
+    // Lưu vào Firestore
+    try {
+      if (widget.staff == null) {
+        await _staffFirestore.addEmployee(staff);
+      } else {
+        await _staffFirestore.updateEmployee(staff);
+      }
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.staff == null
+                ? 'Đã thêm nhân viên'
+                : 'Đã cập nhật nhân viên',
+          ),
+        ),
+      );
+
+      context.pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Lỗi: ${e.toString()}')));
+    }
   }
 
-  // Hàm lưu và tiếp tục thêm
+  // Lưu và thêm tiếp
   Future<void> _saveAndContinue() async {
     if (widget.staff != null) {
-      // Nếu đang sửa, không có chức năng "lưu và tiếp tục"
+      // Nếu đang sửa → Chỉ lưu
       await _save();
       return;
     }
 
-    // Tạo nhân viên mới
-    String id = _uuid.v4();
-    Staff staff = _createStaffFromForm(id);
-    await _firestoreService.addEmployee(staff);
+    // Validate
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng nhập tên nhân viên')),
+      );
+      return;
+    }
 
-    if (!mounted) return;
-    // Hiển thị thông báo
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Đã lưu nhân viên')));
+    if (_selectedPosition == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Vui lòng chọn vị trí')));
+      return;
+    }
 
-    // Xóa sạch form để thêm tiếp
-    _nameController.clear();
-    _positionController.clear();
-    _salaryController.clear();
+    final salary = double.tryParse(_salaryController.text);
+    if (salary == null || salary <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng nhập lương hợp lệ')),
+      );
+      return;
+    }
+
+    // Tạo Staff object
+    final id = _uuid.v4();
+    final staff = Staff(
+      id: id,
+      name: _nameController.text.trim(),
+      positionId: _selectedPosition!.id,
+      positionName: _selectedPosition!.name,
+      salary: salary,
+    );
+
+    // Lưu
+    try {
+      await _staffFirestore.addEmployee(staff);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Đã lưu nhân viên')));
+
+      // Clear form
+      _nameController.clear();
+      _salaryController.clear();
+      setState(() {
+        _selectedPosition = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Lỗi: ${e.toString()}')));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    bool isEditing = widget.staff != null;
+    final isEdit = widget.staff != null;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(isEditing ? 'Sửa nhân viên' : 'Thêm nhân viên'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // Trường nhập tên
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Tên nhân viên'),
-            ),
-            // Trường nhập chức vụ
-            TextField(
-              controller: _positionController,
-              decoration: const InputDecoration(labelText: 'Chức vụ'),
-            ),
-            // Trường nhập lương
-            TextField(
-              controller: _salaryController,
-              decoration: const InputDecoration(labelText: 'Lương'),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                // Nút lưu
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _save,
-                    child: const Text('Lưu'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Nút lưu và thêm tiếp (chỉ hiện khi thêm mới)
-                if (!isEditing)
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _saveAndContinue,
-                      child: const Text('Lưu & Thêm tiếp'),
+      appBar: AppBar(title: Text(isEdit ? 'Sửa nhân viên' : 'Thêm nhân viên')),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  // TÊN NHÂN VIÊN
+                  TextField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Tên nhân viên *',
+                      hintText: 'Nguyễn Văn A',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.person),
                     ),
                   ),
-              ],
+                  const SizedBox(height: 16),
+
+                  // CHỌN VỊ TRÍ
+                  DropdownButtonFormField<Position>(
+                    initialValue: _selectedPosition,
+                    decoration: const InputDecoration(
+                      labelText: 'Vị trí *',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.work),
+                    ),
+                    hint: const Text('Chọn vị trí'),
+                    items: _positions.map((position) {
+                      return DropdownMenuItem(
+                        value: position,
+                        child: Text(position.name),
+                      );
+                    }).toList(),
+                    onChanged: (position) {
+                      setState(() {
+                        _selectedPosition = position;
+                        // Auto-fill lương theo position
+                        if (position?.baseSalary != null) {
+                          _salaryController.text = position!.baseSalary!
+                              .toStringAsFixed(0);
+                        }
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // LƯƠNG
+                  TextField(
+                    controller: _salaryController,
+                    decoration: const InputDecoration(
+                      labelText: 'Lương *',
+                      hintText: '15000000',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.attach_money),
+                      suffixText: 'VNĐ',
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 24),
+
+                  // NÚT LƯU
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _save,
+                          child: const Text('Lưu'),
+                        ),
+                      ),
+                      if (!isEdit) ...[
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _saveAndContinue,
+                            child: const Text('Lưu & Thêm tiếp'),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -60,6 +60,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 context.push('/receptions');
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.receipt),
+              title: const Text('Quản lý vị trí công việc'),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.push('/positions');
+              },
+            ),
           ],
         ),
       ),

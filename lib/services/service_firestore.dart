@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_application/models/service.dart';
+import '../models/service.dart';
 
 // This file contains the service for managing service data in Firestore.
 
@@ -37,5 +37,14 @@ class ServiceFirestore {
   // Delete a service from the database by its ID.
   Future<void> deleteService(String id) {
     return _db.collection(_collection).doc(id).delete();
+  }
+
+  // Get all services as a Future (one-time fetch)
+  Future<List<Service>> getAllServices() async {
+    final snapshot = await _db.collection(_collection).orderBy('name').get();
+
+    return snapshot.docs.map((doc) {
+      return Service.fromJson(doc.data(), id: doc.id);
+    }).toList();
   }
 }

@@ -1,43 +1,40 @@
-// This file defines the Staff model.
-// A model represents the data structure for a staff member in the app.
+// File: lib/models/staff.dart
+// Model đơn giản cho Staff (Nhân viên)
 
-// The Staff class holds information about a staff member.
 class Staff {
-  // Unique identifier for the staff member.
-  final String id;
-  // Name of the staff member.
-  final String name;
-  // Job position of the staff member.
-  final String position;
-  // Salary of the staff member (can be changed).
-  double salary;
+  final String id; // ID duy nhất
+  final String name; // Tên nhân viên
+  final String positionId; // ID của Position
+  final String positionName; // Tên Position (lưu luôn để hiển thị nhanh)
+  double salary; // Lương
 
-  // Constructor to create a new Staff object.
-  // Salary is passed as a positional parameter, others as named.
-  Staff(
-    this.salary, {
+  Staff({
     required this.id,
     required this.name,
-    required this.position,
+    required this.positionId,
+    required this.positionName,
+    required this.salary,
   });
 
-  // Convert the Staff object to a map for saving to Firestore.
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'position': position,
-    'salary': salary,
-  };
+  // Chuyển Staff thành Map để lưu vào Firestore
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'positionId': positionId,
+      'positionName': positionName,
+      'salary': salary,
+    };
+  }
 
-  // Create a Staff object from data loaded from Firestore.
+  // Tạo Staff từ dữ liệu Firestore
   factory Staff.fromJson(Map<String, dynamic> json, {String? id}) {
     return Staff(
-      // Convert salary to double.
-      (json['salary'] as num).toDouble(),
-      // Use provided id, or get from json, or empty string.
       id: id ?? json['id'] ?? '',
       name: json['name'] ?? '',
-      position: json['position'] ?? '',
+      positionId: json['positionId'] ?? '',
+      positionName: json['positionName'] ?? '',
+      salary: json['salary'] != null ? (json['salary'] as num).toDouble() : 0.0,
     );
   }
 }
