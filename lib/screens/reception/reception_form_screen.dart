@@ -217,6 +217,7 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
                   final services = snapshot.data!;
                   return Column(
                     children: [
+                      // ignore: unnecessary_to_list_in_spreads
                       ...services.map((service) {
                         return CheckboxListTile(
                           title: Text('${service.name} - ${service.price} VND'),
@@ -232,7 +233,7 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
                             });
                           },
                         );
-                      }).toList(),
+                      }),
                     ],
                   );
                 },

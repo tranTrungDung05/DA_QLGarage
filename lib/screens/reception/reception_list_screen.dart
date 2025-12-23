@@ -78,9 +78,9 @@ class ReceptionListScreen extends StatelessWidget {
             child: const Text('Hủy'),
           ),
           TextButton(
-            onPressed: () async {
-              await firestore.deleteReception(id);
+            onPressed: () {
               Navigator.of(context).pop();
+              firestore.deleteReception(id);
             },
             child: const Text('Xóa'),
           ),

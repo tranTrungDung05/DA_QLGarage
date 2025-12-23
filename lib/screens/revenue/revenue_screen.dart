@@ -5,7 +5,9 @@ import 'package:flutter_application/services/reception_firestore.dart';
 // Màn hình hiển thị báo cáo doanh thu
 class RevenueScreen extends StatelessWidget {
   // Dịch vụ để lấy dữ liệu từ Firestore
-  final firestore = ReceptionFirestore();
+  final ReceptionFirestore firestore;
+
+  const RevenueScreen({super.key, required this.firestore});
 
   @override
   Widget build(BuildContext context) {

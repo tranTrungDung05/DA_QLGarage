@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application/screens/services/service_list_screen.dart';
 import 'package:flutter_application/screens/staff/staff_list_screen.dart';
 import 'package:flutter_application/screens/revenue/revenue_screen.dart';
+import 'package:flutter_application/services/reception_firestore.dart';
 import 'package:go_router/go_router.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -18,7 +19,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Center(child: Text('Trang tổng quan')),
     ServiceListScreen(),
     StaffListScreen(),
-    RevenueScreen(),
+    RevenueScreen(firestore: ReceptionFirestore()),
   ];
 
   @override
