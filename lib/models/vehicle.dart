@@ -15,6 +15,10 @@ class Vehicle {
   final String plateNumber;
   // Color of the vehicle (optional).
   final String? color;
+  // Phone number of the owner (optional).
+  final String? ownerPhoneNumber;
+  // Customer ID of the owner (optional).
+  final String? customerId;
 
   // Constructor to create a new Vehicle object.
   Vehicle({
@@ -24,6 +28,8 @@ class Vehicle {
     required this.year,
     required this.plateNumber,
     this.color,
+    this.ownerPhoneNumber,
+    this.customerId,
   });
 
   // Convert the Vehicle object to a map for saving to Firestore.
@@ -33,6 +39,8 @@ class Vehicle {
     'year': year,
     'plateNumber': plateNumber,
     'color': color,
+    'ownerPhoneNumber': ownerPhoneNumber,
+    'customerId': customerId,
   };
 
   // Create a Vehicle object from data loaded from Firestore.
@@ -45,6 +53,8 @@ class Vehicle {
       year: (json['year'] as num?)?.toInt() ?? 0,
       plateNumber: json['plateNumber'] ?? '',
       color: json['color'] as String?,
+      ownerPhoneNumber: json['ownerPhoneNumber'] as String?,
+      customerId: json['customerId'] as String?,
     );
   }
 }

@@ -50,7 +50,20 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
       _selectedServiceIds = List.from(widget.reception!.serviceIds);
       _totalPriceController.text = widget.reception!.totalPrice.toString();
       _selectedStatus = widget.reception!.status;
+      // Tính tổng nếu cần, nhưng vì đã có totalPrice, có lẽ không cần
     }
+  }
+
+  void _calculateTotalPrice(List<Service> services) {
+    double total = 0.0;
+    for (var id in _selectedServiceIds) {
+      final service = services.firstWhere(
+        (s) => s.id == id,
+        orElse: () => Service(id: '', name: '', description: '', price: 0.0),
+      );
+      total += service.price;
+    }
+    _totalPriceController.text = total.toString();
   }
 
   // Hàm lưu
@@ -119,8 +132,13 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
                           ),
                         )
                         .toList(),
-                    onChanged: (value) =>
-                        setState(() => _selectedCustomerId = value),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedCustomerId = value;
+                        _selectedVehicleId =
+                            null; // Reset vehicle khi đổi customer
+                      });
+                    },
                     decoration: const InputDecoration(
                       labelText: 'Chọn khách hàng',
                     ),
@@ -134,20 +152,31 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
                   if (!snapshot.hasData) {
                     return const CircularProgressIndicator();
                   }
+                  final filteredVehicles = _selectedCustomerId == null
+                      ? <Vehicle>[]
+                      : snapshot.data!
+                            .where((v) => v.customerId == _selectedCustomerId)
+                            .toList();
                   return DropdownButtonFormField<String>(
                     initialValue: _selectedVehicleId,
-                    items: snapshot.data!
+                    items: filteredVehicles
                         .map(
                           (v) => DropdownMenuItem(
                             value: v.id,
-                            child: Text('${v.brand} ${v.model}'),
+                            child: Text(
+                              '${v.brand} ${v.model} (${v.plateNumber})',
+                            ),
                           ),
                         )
                         .toList(),
-                    onChanged: (value) =>
-                        setState(() => _selectedVehicleId = value),
-                    decoration: const InputDecoration(
+                    onChanged: _selectedCustomerId == null
+                        ? null
+                        : (value) => setState(() => _selectedVehicleId = value),
+                    decoration: InputDecoration(
                       labelText: 'Chọn phương tiện',
+                      hintText: _selectedCustomerId == null
+                          ? 'Vui lòng chọn khách hàng trước'
+                          : null,
                     ),
                   );
                 },
@@ -185,30 +214,37 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
                   if (!snapshot.hasData) {
                     return const CircularProgressIndicator();
                   }
+                  final services = snapshot.data!;
                   return Column(
-                    children: snapshot.data!.map((service) {
-                      return CheckboxListTile(
-                        title: Text(service.name),
-                        value: _selectedServiceIds.contains(service.id),
-                        onChanged: (bool? selected) {
-                          setState(() {
-                            if (selected == true) {
-                              _selectedServiceIds.add(service.id);
-                            } else {
-                              _selectedServiceIds.remove(service.id);
-                            }
-                          });
-                        },
-                      );
-                    }).toList(),
+                    children: [
+                      ...services.map((service) {
+                        return CheckboxListTile(
+                          title: Text('${service.name} - ${service.price} VND'),
+                          value: _selectedServiceIds.contains(service.id),
+                          onChanged: (bool? selected) {
+                            setState(() {
+                              if (selected == true) {
+                                _selectedServiceIds.add(service.id);
+                              } else {
+                                _selectedServiceIds.remove(service.id);
+                              }
+                              _calculateTotalPrice(services);
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ],
                   );
                 },
               ),
-              // TextField cho tổng tiền
+              // TextField cho tổng tiền (tự động tính)
               TextField(
                 controller: _totalPriceController,
-                decoration: const InputDecoration(labelText: 'Tổng tiền'),
+                decoration: const InputDecoration(
+                  labelText: 'Tổng tiền (tự động)',
+                ),
                 keyboardType: TextInputType.number,
+                readOnly: true,
               ),
               // Dropdown cho trạng thái
               DropdownButtonFormField<String>(

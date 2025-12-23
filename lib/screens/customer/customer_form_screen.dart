@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_application/models/customer.dart';
+import 'package:flutter_application/models/vehicle.dart';
 import 'package:flutter_application/services/customer_firestore.dart';
+import 'package:flutter_application/services/vehicle_firestore.dart';
 import 'package:uuid/uuid.dart';
 
 class CustomerFormScreen extends StatefulWidget {
@@ -17,8 +19,18 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
   final _phoneCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
+  final _plateNumberCtrl = TextEditingController();
+
+  // Vehicle fields
+  final _brandCtrl = TextEditingController();
+  final _modelCtrl = TextEditingController();
+  final _yearCtrl = TextEditingController();
+  final _colorCtrl = TextEditingController();
+
+  bool _addVehicle = false;
 
   final firestore = CustomerFirestore();
+  final vehicleFirestore = VehicleFirestore();
   final uuid = const Uuid();
 
   @override
@@ -48,6 +60,9 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
     } else {
       await firestore.updateCustomer(customer);
     }
+    if (_addVehicle) {
+      await _createVehicleForCustomer(customer);
+    }
 
     if (!mounted) return;
     context.pop();
@@ -65,6 +80,13 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
 
     if (widget.customer == null) {
       await firestore.addCustomer(customer);
+    } else {
+      await firestore.updateCustomer(customer);
+    }
+    if (_addVehicle) {
+      await _createVehicleForCustomer(customer);
+    }
+    if (widget.customer == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -73,12 +95,39 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
       _phoneCtrl.clear();
       _emailCtrl.clear();
       _addressCtrl.clear();
+      _plateNumberCtrl.clear();
+      _brandCtrl.clear();
+      _modelCtrl.clear();
+      _yearCtrl.clear();
+      _colorCtrl.clear();
+      _addVehicle = false;
     } else {
-      await firestore.updateCustomer(customer);
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Đã cập nhật')));
+    }
+  }
+
+  Future<void> _createVehicleForCustomer(Customer customer) async {
+    if (_plateNumberCtrl.text.isNotEmpty && _brandCtrl.text.isNotEmpty) {
+      final existingVehicle = await vehicleFirestore.getVehicleByPlateNumber(
+        _plateNumberCtrl.text,
+      );
+      if (existingVehicle == null) {
+        final vehicleId = uuid.v4();
+        final vehicle = Vehicle(
+          id: vehicleId,
+          brand: _brandCtrl.text,
+          model: _modelCtrl.text,
+          year: int.tryParse(_yearCtrl.text) ?? 0,
+          plateNumber: _plateNumberCtrl.text,
+          color: _colorCtrl.text.isEmpty ? null : _colorCtrl.text,
+          ownerPhoneNumber: customer.phoneNumber,
+          customerId: customer.id,
+        );
+        await vehicleFirestore.addVehicle(vehicle);
+      }
     }
   }
 
@@ -110,6 +159,39 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
               controller: _addressCtrl,
               decoration: const InputDecoration(labelText: 'Địa chỉ'),
             ),
+            const SizedBox(height: 16),
+            CheckboxListTile(
+              title: const Text('Thêm xe cho khách hàng'),
+              value: _addVehicle,
+              onChanged: (value) {
+                setState(() {
+                  _addVehicle = value ?? false;
+                });
+              },
+            ),
+            if (_addVehicle) ...[
+              TextField(
+                controller: _brandCtrl,
+                decoration: const InputDecoration(labelText: 'Hãng xe'),
+              ),
+              TextField(
+                controller: _modelCtrl,
+                decoration: const InputDecoration(labelText: 'Model xe'),
+              ),
+              TextField(
+                controller: _yearCtrl,
+                decoration: const InputDecoration(labelText: 'Năm sản xuất'),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: _plateNumberCtrl,
+                decoration: const InputDecoration(labelText: 'Biển số xe'),
+              ),
+              TextField(
+                controller: _colorCtrl,
+                decoration: const InputDecoration(labelText: 'Màu xe'),
+              ),
+            ],
             const SizedBox(height: 24),
             Row(
               children: [

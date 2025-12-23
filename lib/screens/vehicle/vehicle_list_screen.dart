@@ -29,7 +29,9 @@ class VehicleListScreen extends StatelessWidget {
             final v = vehicles[index];
             return ListTile(
               title: Text('${v.brand} ${v.model}'),
-              subtitle: Text(v.plateNumber),
+              subtitle: Text(
+                '${v.plateNumber}${v.ownerPhoneNumber != null ? ' - ${v.ownerPhoneNumber}' : ''}${v.customerId != null ? ' (Đã liên kết)' : ''}',
+              ),
               onTap: () => context.push('/vehicle_form', extra: v),
               trailing: IconButton(
                 icon: const Icon(Icons.delete, color: Colors.red),

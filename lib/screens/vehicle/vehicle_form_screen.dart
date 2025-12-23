@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_application/models/vehicle.dart';
 import 'package:flutter_application/services/vehicle_firestore.dart';
+import 'package:flutter_application/services/customer_firestore.dart';
 import 'package:uuid/uuid.dart';
 
 class VehicleFormScreen extends StatefulWidget {
@@ -18,8 +19,10 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
   final _yearCtrl = TextEditingController();
   final _plateCtrl = TextEditingController();
   final _colorCtrl = TextEditingController();
+  final _ownerPhoneCtrl = TextEditingController();
 
   final firestore = VehicleFirestore();
+  final customerFirestore = CustomerFirestore();
   final uuid = const Uuid();
 
   @override
@@ -32,11 +35,21 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
       _yearCtrl.text = v.year.toString();
       _plateCtrl.text = v.plateNumber;
       _colorCtrl.text = v.color ?? '';
+      _ownerPhoneCtrl.text = v.ownerPhoneNumber ?? '';
     }
   }
 
   Future<void> _save() async {
     final id = widget.vehicle?.id ?? uuid.v4();
+    String? customerId = widget.vehicle?.customerId;
+    if (_ownerPhoneCtrl.text.isNotEmpty && customerId == null) {
+      final customer = await customerFirestore.getCustomerByPhoneNumber(
+        _ownerPhoneCtrl.text,
+      );
+      if (customer != null) {
+        customerId = customer.id;
+      }
+    }
     final vehicle = Vehicle(
       id: id,
       brand: _brandCtrl.text,
@@ -44,6 +57,10 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
       year: int.tryParse(_yearCtrl.text) ?? 0,
       plateNumber: _plateCtrl.text,
       color: _colorCtrl.text.isEmpty ? null : _colorCtrl.text,
+      ownerPhoneNumber: _ownerPhoneCtrl.text.isEmpty
+          ? null
+          : _ownerPhoneCtrl.text,
+      customerId: customerId,
     );
 
     if (widget.vehicle == null) {
@@ -58,6 +75,15 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
 
   Future<void> _saveAndContinue() async {
     final id = widget.vehicle?.id ?? uuid.v4();
+    String? customerId = widget.vehicle?.customerId;
+    if (_ownerPhoneCtrl.text.isNotEmpty && customerId == null) {
+      final customer = await customerFirestore.getCustomerByPhoneNumber(
+        _ownerPhoneCtrl.text,
+      );
+      if (customer != null) {
+        customerId = customer.id;
+      }
+    }
     final vehicle = Vehicle(
       id: id,
       brand: _brandCtrl.text,
@@ -65,6 +91,10 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
       year: int.tryParse(_yearCtrl.text) ?? 0,
       plateNumber: _plateCtrl.text,
       color: _colorCtrl.text.isEmpty ? null : _colorCtrl.text,
+      ownerPhoneNumber: _ownerPhoneCtrl.text.isEmpty
+          ? null
+          : _ownerPhoneCtrl.text,
+      customerId: customerId,
     );
 
     if (widget.vehicle == null) {
@@ -78,6 +108,7 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
       _yearCtrl.clear();
       _plateCtrl.clear();
       _colorCtrl.clear();
+      _ownerPhoneCtrl.clear();
     } else {
       await firestore.updateVehicle(vehicle);
       if (!mounted) return;
@@ -119,6 +150,12 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
             TextField(
               controller: _colorCtrl,
               decoration: const InputDecoration(labelText: 'Màu'),
+            ),
+            TextField(
+              controller: _ownerPhoneCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Số điện thoại chủ xe',
+              ),
             ),
             const SizedBox(height: 24),
             Row(

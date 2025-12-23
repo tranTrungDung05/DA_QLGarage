@@ -26,7 +26,7 @@ class VehicleFirestore {
 
   // Add a new vehicle to the database.
   Future<void> addVehicle(Vehicle v) {
-    return _db.collection(_collection).add(v.toJson());
+    return _db.collection(_collection).doc(v.id).set(v.toJson());
   }
 
   // Update an existing vehicle in the database.
@@ -37,5 +37,19 @@ class VehicleFirestore {
   // Delete a vehicle from the database by its ID.
   Future<void> deleteVehicle(String id) {
     return _db.collection(_collection).doc(id).delete();
+  }
+
+  // Get a vehicle by its plate number.
+  Future<Vehicle?> getVehicleByPlateNumber(String plateNumber) async {
+    final querySnapshot = await _db
+        .collection(_collection)
+        .where('plateNumber', isEqualTo: plateNumber)
+        .limit(1)
+        .get();
+    if (querySnapshot.docs.isNotEmpty) {
+      final doc = querySnapshot.docs.first;
+      return Vehicle.fromJson(doc.data(), id: doc.id);
+    }
+    return null;
   }
 }

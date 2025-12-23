@@ -8,6 +8,8 @@ class ReceptionListScreen extends StatelessWidget {
   // Dịch vụ để lấy dữ liệu từ Firestore
   final firestore = ReceptionFirestore();
 
+  ReceptionListScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<Reception>>(

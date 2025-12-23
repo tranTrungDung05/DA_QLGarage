@@ -28,7 +28,7 @@ class CustomerFirestore {
 
   // Add a new customer to the database.
   Future<void> addCustomer(Customer c) {
-    return _db.collection(_collection).add(c.toJson());
+    return _db.collection(_collection).doc(c.id).set(c.toJson());
   }
 
   // Update an existing customer in the database.
@@ -39,5 +39,28 @@ class CustomerFirestore {
   // Delete a customer from the database by their ID.
   Future<void> deleteCustomer(String id) {
     return _db.collection(_collection).doc(id).delete();
+  }
+
+  // Get a customer by their ID.
+  Future<Customer?> getCustomerById(String id) async {
+    final doc = await _db.collection(_collection).doc(id).get();
+    if (doc.exists) {
+      return Customer.fromJson(doc.data()!, id: doc.id);
+    }
+    return null;
+  }
+
+  // Get a customer by their phone number.
+  Future<Customer?> getCustomerByPhoneNumber(String phoneNumber) async {
+    final querySnapshot = await _db
+        .collection(_collection)
+        .where('phoneNumber', isEqualTo: phoneNumber)
+        .limit(1)
+        .get();
+    if (querySnapshot.docs.isNotEmpty) {
+      final doc = querySnapshot.docs.first;
+      return Customer.fromJson(doc.data(), id: doc.id);
+    }
+    return null;
   }
 }
