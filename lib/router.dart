@@ -7,6 +7,7 @@ import 'package:flutter_application/screens/services/service_form_screen.dart';
 import 'package:flutter_application/screens/staff/staff_form_screen.dart';
 import 'package:flutter_application/screens/customer/customer_form_screen.dart';
 import 'package:flutter_application/screens/staff_positions/position_form_screen.dart';
+import 'package:flutter_application/screens/task_assignment/task_assignment_list_screen.dart';
 import 'screens/staff_positions/position_list_screen.dart';
 import 'package:flutter_application/screens/vehicle/vehicle_form_screen.dart';
 import 'package:flutter_application/screens/customer/customer_list_screen.dart';
@@ -119,6 +120,17 @@ GoRouter createRouter() {
         builder: (context, state) {
           final position = state.extra as Position?;
           return PositionFormScreen(position: position);
+        },
+      ),
+      GoRoute(
+        path: '/task-assignments',
+        builder: (context, state) => const TaskAssignmentListScreen(),
+      ),
+      GoRoute(
+        path: '/task-assignments/:receptionId',
+        builder: (context, state) {
+          final receptionId = state.pathParameters['receptionId'];
+          return TaskAssignmentListScreen(receptionId: receptionId);
         },
       ),
     ],

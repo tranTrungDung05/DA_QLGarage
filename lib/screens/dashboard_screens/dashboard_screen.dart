@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application/screens/services/service_list_screen.dart';
 import 'package:flutter_application/screens/staff/staff_list_screen.dart';
 import 'package:flutter_application/screens/revenue/revenue_screen.dart';
-import 'package:flutter_application/services/reception_firestore.dart';
+
 import 'package:go_router/go_router.dart';
+import 'package:flutter_application/services/revenue_firestore.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -19,7 +20,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Center(child: Text('Trang tổng quan')),
     ServiceListScreen(),
     StaffListScreen(),
-    RevenueScreen(firestore: ReceptionFirestore()),
+    RevenueScreen(firestore: RevenueFirestore()),
   ];
 
   @override
@@ -66,6 +67,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               onTap: () {
                 Navigator.of(context).pop();
                 context.push('/positions');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.receipt),
+              title: const Text('Phân công công việc'),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.push('/task-assignments');
               },
             ),
           ],

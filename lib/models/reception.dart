@@ -2,29 +2,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Model đại diện cho phiếu tiếp nhận
 class Reception {
-  // ID duy nhất của phiếu
   final String id;
-
-  // ID của khách hàng
   final String customerId;
-  // ID của phương tiện
   final String vehicleId;
-  // ID của nhân viên phụ trách
   final List<String> staffIds;
-
-  // Danh sách ID các dịch vụ
   final List<String> serviceIds;
-
-  // Tổng tiền
   final double totalPrice;
-
-  // Trạng thái: pending | in_progress | done | canceled
-  final String status;
-
-  // Thời gian tạo
+  final String status; // pending | in_progress | done | canceled
   final DateTime createdAt;
 
-  // Constructor
   Reception({
     required this.id,
     required this.customerId,
@@ -44,20 +30,58 @@ class Reception {
     'serviceIds': serviceIds,
     'totalPrice': totalPrice,
     'status': status,
-    'createdAt': createdAt,
+    'createdAt': Timestamp.fromDate(createdAt),
   };
+
+  // ✅ THÊM METHOD toMap() để tương thích với code cũ
+  Map<String, dynamic> toMap() => toJson();
 
   // Tạo từ map lấy từ Firestore
   factory Reception.fromJson(Map<String, dynamic> json, {required String id}) {
     return Reception(
       id: id,
-      customerId: json['customerId'],
-      vehicleId: json['vehicleId'],
+      customerId: json['customerId'] ?? '',
+      vehicleId: json['vehicleId'] ?? '',
       staffIds: List<String>.from(json['staffIds'] ?? []),
       serviceIds: List<String>.from(json['serviceIds'] ?? []),
-      totalPrice: (json['totalPrice'] as num).toDouble(),
-      status: json['status'],
-      createdAt: (json['createdAt'] as Timestamp).toDate(),
+      totalPrice: (json['totalPrice'] as num?)?.toDouble() ?? 0.0,
+      status: json['status'] ?? 'pending',
+      createdAt: json['createdAt'] is Timestamp
+          ? (json['createdAt'] as Timestamp).toDate()
+          : DateTime.now(),
     );
+  }
+
+  // ✅ THÊM METHOD fromMap() để tương thích
+  factory Reception.fromMap(Map<String, dynamic> map) {
+    return Reception.fromJson(map, id: map['id'] ?? '');
+  }
+
+  // Copy with để cập nhật một số field
+  Reception copyWith({
+    String? id,
+    String? customerId,
+    String? vehicleId,
+    List<String>? staffIds,
+    List<String>? serviceIds,
+    double? totalPrice,
+    String? status,
+    DateTime? createdAt,
+  }) {
+    return Reception(
+      id: id ?? this.id,
+      customerId: customerId ?? this.customerId,
+      vehicleId: vehicleId ?? this.vehicleId,
+      staffIds: staffIds ?? this.staffIds,
+      serviceIds: serviceIds ?? this.serviceIds,
+      totalPrice: totalPrice ?? this.totalPrice,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return 'Reception(id: $id, status: $status, totalPrice: $totalPrice)';
   }
 }
