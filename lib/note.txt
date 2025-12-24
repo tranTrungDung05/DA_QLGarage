@@ -1,3 +1,18 @@
 email: toidongianladung@gmail.com/ pass: trungdung123
 
-1. thêm Auth Guard: Nếu đã login → không cho quay lại /login; Nếu logout → nhảy về /loginq
+1. lỗi router dashboard khi click mở rộng của card dòng 405 nhưng không phải vấn đề khi có thể loại bỏ
+
+Quy trình hoạt động:
+
+1. Thêm công việc tại màn hình quản lý công việc (tại drawer)
+2. thêm nhân viên  / Thêm dịch vụ
+3. thêm khách hàng -> tự tạo xe trong quản lý xe hoặc có thể thêm thủ công nhờ primary SĐT và Biển số
+4. sau khi có khách hàng, xe/nhiều xe của khách hàng thì có thể tạo phiếu tiếp nhận
+-chọn khách hàng
+-chọn xe của khách (có thể có nhiều xe)
+-chọn dịch vụ -> tự tính tổng bill -> tự recommend nhân viên có vị trị phù hợp đảm nhiệm để chọn
+- chọn nhân viên
+- lưu -> tự động tạo phiếu phân công
+6. khi hoàn thành phân công (các nhân viên thuộc phiếu tiếp nhận hoàn thành) thì tính vào doanh thu
+
+//Chưa có chức năng phân quyền để giới hạn staff
