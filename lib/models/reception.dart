@@ -10,7 +10,7 @@ class Reception {
   // ID của phương tiện
   final String vehicleId;
   // ID của nhân viên phụ trách
-  final String staffId;
+  final List<String> staffIds;
 
   // Danh sách ID các dịch vụ
   final List<String> serviceIds;
@@ -29,7 +29,7 @@ class Reception {
     required this.id,
     required this.customerId,
     required this.vehicleId,
-    required this.staffId,
+    required this.staffIds,
     required this.serviceIds,
     required this.totalPrice,
     required this.status,
@@ -40,7 +40,7 @@ class Reception {
   Map<String, dynamic> toJson() => {
     'customerId': customerId,
     'vehicleId': vehicleId,
-    'staffId': staffId,
+    'staffIds': staffIds,
     'serviceIds': serviceIds,
     'totalPrice': totalPrice,
     'status': status,
@@ -53,7 +53,7 @@ class Reception {
       id: id,
       customerId: json['customerId'],
       vehicleId: json['vehicleId'],
-      staffId: json['staffId'],
+      staffIds: List<String>.from(json['staffIds'] ?? []),
       serviceIds: List<String>.from(json['serviceIds'] ?? []),
       totalPrice: (json['totalPrice'] as num).toDouble(),
       status: json['status'],

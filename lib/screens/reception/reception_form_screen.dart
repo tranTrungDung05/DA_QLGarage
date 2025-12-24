@@ -30,7 +30,7 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
 
   String? _selectedCustomerId;
   String? _selectedVehicleId;
-  String? _selectedStaffId;
+  List<String> _selectedStaffIds = [];
   List<String> _selectedServiceIds = [];
   String _selectedStatus = 'pending';
 
@@ -55,7 +55,7 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
     if (widget.reception != null) {
       _selectedCustomerId = widget.reception!.customerId;
       _selectedVehicleId = widget.reception!.vehicleId;
-      _selectedStaffId = widget.reception!.staffId;
+      _selectedStaffIds = List.from(widget.reception!.staffIds);
       _selectedServiceIds = List.from(widget.reception!.serviceIds);
       _totalPriceController.text = widget.reception!.totalPrice.toString();
       _selectedStatus = widget.reception!.status;
@@ -105,7 +105,7 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
     if (_selectedServiceIds.isEmpty) {
       setState(() {
         _filteredStaff = [];
-        _selectedStaffId = null; // Reset staff đã chọn
+        _selectedStaffIds = []; // Reset staff đã chọn
       });
       return;
     }
@@ -139,24 +139,16 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
       _filteredStaff = filtered;
 
       // Reset staff đã chọn nếu không còn trong danh sách filtered
-      if (_selectedStaffId != null) {
-        final isStillValid = filtered.any((s) => s.id == _selectedStaffId);
-        if (!isStillValid) {
-          _selectedStaffId = null;
-        }
-      }
-
-      // Auto-select nếu chỉ có 1 staff
-      if (filtered.length == 1) {
-        _selectedStaffId = filtered.first.id;
-      }
+      _selectedStaffIds.removeWhere((staffId) {
+        return !filtered.any((s) => s.id == staffId);
+      });
     });
   }
 
   Future<void> _save() async {
     if (_selectedCustomerId == null ||
         _selectedVehicleId == null ||
-        _selectedStaffId == null) {
+        _selectedStaffIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Vui lòng chọn đầy đủ thông tin')),
       );
@@ -177,7 +169,7 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
       id: id,
       customerId: _selectedCustomerId!,
       vehicleId: _selectedVehicleId!,
-      staffId: _selectedStaffId!,
+      staffIds: _selectedStaffIds,
       serviceIds: _selectedServiceIds,
       totalPrice: totalPrice,
       status: _selectedStatus,
@@ -354,15 +346,14 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
               const SizedBox(height: 16),
 
               // NHÂN VIÊN PHỤ TRÁCH
+              // NHÂN VIÊN PHỤ TRÁCH
               const Text(
                 '👨‍🔧 Nhân viên phụ trách',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
 
-              // ===== CHỈ HIỂN THỊ FILTERED STAFF =====
               if (_selectedServiceIds.isEmpty)
-                // Chưa chọn dịch vụ
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -376,7 +367,7 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
                       SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Vui lòng chọn dịch vụ trước để xem danh sách nhân viên phù hợp',
+                          'Vui lòng chọn dịch vụ trước',
                           style: TextStyle(color: Colors.grey),
                         ),
                       ),
@@ -384,7 +375,6 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
                   ),
                 )
               else if (_filteredStaff.isEmpty)
-                // Không có staff phù hợp
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -398,7 +388,7 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
                       const SizedBox(width: 12),
                       const Expanded(
                         child: Text(
-                          '⚠️ Không có nhân viên phù hợp với dịch vụ đã chọn',
+                          '⚠️ Không có nhân viên phù hợp',
                           style: TextStyle(fontWeight: FontWeight.w500),
                         ),
                       ),
@@ -406,11 +396,9 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
                   ),
                 )
               else
-                // Có staff phù hợp → Hiển thị dropdown
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Info box
                     Container(
                       padding: const EdgeInsets.all(12),
                       margin: const EdgeInsets.only(bottom: 8),
@@ -441,40 +429,41 @@ class _ReceptionFormScreenState extends State<ReceptionFormScreen> {
                       ),
                     ),
 
-                    // Dropdown CHỈ hiển thị filtered staff
-                    DropdownButtonFormField<String>(
-                      initialValue: _selectedStaffId,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        hintText: 'Chọn nhân viên',
-                        prefixIcon: Icon(Icons.person),
+                    // CHECKBOXES CHO TỪNG STAFF
+                    Card(
+                      child: Column(
+                        children: _filteredStaff.map((staff) {
+                          final isSelected = _selectedStaffIds.contains(
+                            staff.id,
+                          );
+
+                          return CheckboxListTile(
+                            title: Text(
+                              staff.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            subtitle: Text(
+                              '${staff.positionName} • ${_formatMoney(staff.salary)}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            value: isSelected,
+                            onChanged: (bool? selected) {
+                              setState(() {
+                                if (selected == true) {
+                                  _selectedStaffIds.add(staff.id);
+                                } else {
+                                  _selectedStaffIds.remove(staff.id);
+                                }
+                              });
+                            },
+                          );
+                        }).toList(),
                       ),
-                      items: _filteredStaff.map((staff) {
-                        return DropdownMenuItem(
-                          value: staff.id,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                staff.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                '${staff.positionName} • ${_formatMoney(staff.salary)}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (value) =>
-                          setState(() => _selectedStaffId = value),
                     ),
                   ],
                 ),
